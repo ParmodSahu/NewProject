@@ -1,18 +1,449 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <style>
-        body{
-            background-color: aqua;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Unit Circle — Interactive Trig Instrument</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+
+</style>
 </head>
 <body>
-        <h1>This is my first Project in Github</h1>
-        <p>thi si </p>
+<div class="page">
+
+  <header>
+    <p class="eyebrow">Interactive trig instrument</p>
+    <h1>The Unit Circle</h1>
+    <p class="lede">Drag the pin around the dial, step through it with your keyboard, or press play and watch sine and cosine trace themselves out at every marked angle.</p>
+  </header>
+
+  <main class="layout">
+    <section class="dial-wrap">
+      <div class="dial-card">
+        <svg id="dial" viewBox="0 0 600 600" role="img" aria-labelledby="dialTitle">
+          <title id="dialTitle">Unit circle showing the current angle, its sine, and its cosine</title>
+        </svg>
+      </div>
+      <p class="caption">Drag the coral pin, or focus it and use the <kbd>arrow</kbd> keys. <kbd>Home</kbd> resets to 0°.</p>
+    </section>
+
+    <aside class="panel">
+      <div class="card readout">
+        <div class="stat theta">
+          <span class="stat-label">θ</span>
+          <span class="stat-value" id="valThetaDeg">0°</span>
+          <span class="stat-sub" id="valThetaRad">0 rad</span>
+        </div>
+        <div class="stat sin">
+          <span class="stat-label">sin θ</span>
+          <span class="stat-value" id="valSin">0</span>
+        </div>
+        <div class="stat cos">
+          <span class="stat-label">cos θ</span>
+          <span class="stat-value" id="valCos">1</span>
+        </div>
+        <div class="stat tan">
+          <span class="stat-label">tan θ</span>
+          <span class="stat-value" id="valTan">0</span>
+        </div>
+      </div>
+
+      <div class="card controls">
+        <div class="row">
+          <button class="btn-primary" id="playBtn" type="button"><span class="icon" aria-hidden="true"></span><span id="playBtnText">Play</span></button>
+          <button class="btn-ghost" id="resetBtn" type="button">Reset</button>
+        </div>
+        <label class="toggle-row">
+          <input type="checkbox" id="snapToggle" checked>
+          Snap to marked angles
+        </label>
+        <label class="speed-row">
+          <span class="speed-head">Sweep speed <span class="val" id="speedVal">1.0×</span></span>
+          <input type="range" id="speedSlider" min="0.25" max="2.5" step="0.25" value="1">
+        </label>
+      </div>
+
+      <div class="card legend">
+        <div class="legend-item"><span class="dot coral"></span>Radius vector &amp; sine drop</div>
+        <div class="legend-item"><span class="dot periwinkle"></span>Marked angle &amp; cosine drop</div>
+        <div class="legend-item"><span class="dot amber"></span>Angle swept from 0</div>
+      </div>
+    </aside>
+  </main>
+
+  <footer>Plain SVG and vanilla JS — no canvas, no charting library.</footer>
+</div>
+
+<script>
+(function(){
+  const NS = 'http://www.w3.org/2000/svg';
+  const cx = 300, cy = 300, R = 210;
+  const wedgeR = 46;
+  const svg = document.getElementById('dial');
+
+  function el(tag, attrs){
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function toRad(deg){ return deg * Math.PI / 180; }
+
+  // svg point for a given math-angle (deg) and radius, math convention:
+  // y-up, counterclockwise from +x axis
+  function pt(deg, radius){
+    const r = toRad(deg);
+    return { x: cx + radius * Math.cos(r), y: cy - radius * Math.sin(r) };
+  }
+
+  const MARKS = [
+    { deg: 0,   label: '2π',    sin: '0',      cos: '1',      tan: '0',         axis: true },
+    { deg: 30,  label: 'π⁄6',   sin: '1⁄2',    cos: '√3⁄2',   tan: '√3⁄3' },
+    { deg: 45,  label: 'π⁄4',   sin: '√2⁄2',   cos: '√2⁄2',   tan: '1' },
+    { deg: 60,  label: 'π⁄3',   sin: '√3⁄2',   cos: '1⁄2',    tan: '√3' },
+    { deg: 90,  label: 'π⁄2',   sin: '1',      cos: '0',      tan: 'undefined', axis: true },
+    { deg: 120, label: '2π⁄3',  sin: '√3⁄2',   cos: '−1⁄2',   tan: '−√3' },
+    { deg: 135, label: '3π⁄4',  sin: '√2⁄2',   cos: '−√2⁄2',  tan: '−1' },
+    { deg: 150, label: '5π⁄6',  sin: '1⁄2',    cos: '−√3⁄2',  tan: '−√3⁄3' },
+    { deg: 180, label: 'π',     sin: '0',      cos: '−1',     tan: '0',         axis: true },
+    { deg: 210, label: '7π⁄6',  sin: '−1⁄2',   cos: '−√3⁄2',  tan: '√3⁄3' },
+    { deg: 225, label: '5π⁄4',  sin: '−√2⁄2',  cos: '−√2⁄2',  tan: '1' },
+    { deg: 240, label: '4π⁄3',  sin: '−√3⁄2',  cos: '−1⁄2',   tan: '√3' },
+    { deg: 270, label: '3π⁄2',  sin: '−1',     cos: '0',      tan: 'undefined', axis: true },
+    { deg: 300, label: '5π⁄3',  sin: '−√3⁄2',  cos: '1⁄2',    tan: '−√3' },
+    { deg: 315, label: '7π⁄4',  sin: '−√2⁄2',  cos: '√2⁄2',   tan: '−1' },
+    { deg: 330, label: '11π⁄6', sin: '−1⁄2',   cos: '√3⁄2',   tan: '−√3⁄3' },
+  ];
+
+  const NICE = [1, Math.sqrt(3)/2, Math.sqrt(2)/2, 0.5, -0.5, -Math.sqrt(2)/2, -Math.sqrt(3)/2, -1];
+
+  // ---- static layer ----
+  const staticLayer = el('g', {});
+  svg.appendChild(staticLayer);
+
+  // reference grid chords (always-on dotted levels, like graph paper for sin/cos)
+  NICE.forEach(level => {
+    const svgY = cy - level * R;
+    const halfW = Math.sqrt(Math.max(0, R*R - (level*R)*(level*R)));
+    if (halfW > 1){
+      staticLayer.appendChild(el('line', {
+        x1: cx - halfW, y1: svgY, x2: cx + halfW, y2: svgY,
+        stroke: 'rgba(234,241,255,0.16)', 'stroke-width': 1, 'stroke-dasharray': '1.5,4'
+      }));
+    }
+    const svgX = cx + level * R;
+    const halfH = Math.sqrt(Math.max(0, R*R - (level*R)*(level*R)));
+    if (halfH > 1){
+      staticLayer.appendChild(el('line', {
+        x1: svgX, y1: cy - halfH, x2: svgX, y2: cy + halfH,
+        stroke: 'rgba(234,241,255,0.16)', 'stroke-width': 1, 'stroke-dasharray': '1.5,4'
+      }));
+    }
+  });
+
+  // dense protractor ticks
+  for (let d = 0; d < 360; d += 3){
+    const isMajor = MARKS.some(m => m.deg === d);
+    if (isMajor) continue;
+    const a = pt(d, R - 7), b = pt(d, R);
+    staticLayer.appendChild(el('line', {
+      x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+      stroke: 'rgba(234,241,255,0.22)', 'stroke-width': 1
+    }));
+  }
+
+  // outer circle
+  staticLayer.appendChild(el('circle', {
+    cx, cy, r: R, fill: 'none', stroke: 'rgba(234,241,255,0.45)', 'stroke-width': 1.5
+  }));
+
+  // axis lines with arrowheads
+  function axisLine(x1,y1,x2,y2){
+    staticLayer.appendChild(el('line', {
+      x1, y1, x2, y2, stroke: 'rgba(234,241,255,0.5)', 'stroke-width': 1.3
+    }));
+  }
+  const axR = R + 34;
+  axisLine(cx - axR, cy, cx + axR, cy);
+  axisLine(cx, cy - axR, cx, cy + axR);
+
+  function arrowhead(tipX, tipY, dirX, dirY){
+    // dirX/dirY normalized direction the arrow points
+    const size = 7;
+    const px = -dirY, py = dirX; // perpendicular
+    const p1 = { x: tipX, y: tipY };
+    const back = { x: tipX - dirX*size*1.8, y: tipY - dirY*size*1.8 };
+    const p2 = { x: back.x + px*size*0.7, y: back.y + py*size*0.7 };
+    const p3 = { x: back.x - px*size*0.7, y: back.y - py*size*0.7 };
+    staticLayer.appendChild(el('polygon', {
+      points: `${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`,
+      fill: 'rgba(234,241,255,0.55)'
+    }));
+  }
+  arrowhead(cx + axR, cy, 1, 0);
+  arrowhead(cx - axR, cy, -1, 0);
+  arrowhead(cx, cy - axR, 0, -1);
+  arrowhead(cx, cy + axR, 0, 1);
+
+  // marked points + labels
+  MARKS.forEach(m => {
+    const p = pt(m.deg, R);
+    const dotR = 5.5;
+    const dot = el('circle', {
+      cx: p.x, cy: p.y, r: dotR, fill: '#7C9CFF', stroke: '#0B233F', 'stroke-width': 2,
+      id: 'mark-' + m.deg
+    });
+    staticLayer.appendChild(dot);
+
+    const labelR = m.axis ? R + 52 : R + 32;
+    const lp = pt(m.deg, labelR);
+    const dirX = Math.cos(toRad(m.deg));
+    const dirY = -Math.sin(toRad(m.deg));
+    let anchor = 'middle';
+    if (dirX > 0.2) anchor = 'start';
+    else if (dirX < -0.2) anchor = 'end';
+    let dy = 0;
+    if (dirY < -0.4) dy = -2;
+    else if (dirY > 0.4) dy = 8;
+    else dy = 4;
+
+    const text = el('text', {
+      x: lp.x, y: lp.y + dy, 'text-anchor': anchor,
+      'font-family': 'IBM Plex Mono, monospace', 'font-size': m.axis ? 17 : 15,
+      fill: 'rgba(234,241,255,0.92)'
+    });
+    text.textContent = m.label;
+    staticLayer.appendChild(text);
+  });
+
+  // center pivot
+  staticLayer.appendChild(el('circle', { cx, cy, r: 3, fill: 'rgba(234,241,255,0.7)' }));
+
+  // ---- dynamic layer ----
+  const dynLayer = el('g', {});
+  svg.appendChild(dynLayer);
+
+  const projV = el('line', { stroke: 'var(--coral)', stroke: '#FF6B5A', 'stroke-width': 1.6, 'stroke-dasharray': '3,4' });
+  const projH = el('line', { stroke: '#7C9CFF', 'stroke-width': 1.6, 'stroke-dasharray': '3,4' });
+  const wedge = el('path', { fill: '#F2A93B', opacity: 0.85 });
+  const vector = el('line', { stroke: '#FF6B5A', 'stroke-width': 3, 'stroke-linecap': 'round' });
+  const haloRing = el('circle', { r: 13, fill: 'none', stroke: '#FF6B5A', 'stroke-width': 1.4, opacity: 0.45 });
+  const focusRing = el('circle', { r: 18, fill: 'none', stroke: '#F2A93B', 'stroke-width': 2, opacity: 0 });
+  const point = el('circle', { r: 8, fill: '#FF6B5A', stroke: '#0B233F', 'stroke-width': 2 });
+  const handleHit = el('circle', {
+    r: 26, fill: 'rgba(255,255,255,0.001)', id: 'handleHit',
+    tabindex: '0', role: 'slider', 'aria-label': 'Angle theta',
+    'aria-valuemin': '0', 'aria-valuemax': '360'
+  });
+
+  [wedge, vector, projV, projH, haloRing, focusRing, point, handleHit].forEach(n => dynLayer.appendChild(n));
+
+  // ---- state ----
+  let theta = 0;       // degrees, math convention, 0-360
+  let playing = false;
+  let rafId = null;
+  let lastTime = null;
+  let dragging = false;
+
+  const snapToggle = document.getElementById('snapToggle');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedVal = document.getElementById('speedVal');
+  const playBtn = document.getElementById('playBtn');
+  const playBtnText = document.getElementById('playBtnText');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const valThetaDeg = document.getElementById('valThetaDeg');
+  const valThetaRad = document.getElementById('valThetaRad');
+  const valSin = document.getElementById('valSin');
+  const valCos = document.getElementById('valCos');
+  const valTan = document.getElementById('valTan');
+
+  function nearestMark(deg){
+    let best = MARKS[0], bestDist = 999;
+    MARKS.forEach(m => {
+      let d = Math.abs(m.deg - deg);
+      d = Math.min(d, 360 - d);
+      if (d < bestDist){ bestDist = d; best = m; }
+    });
+    return { mark: best, dist: bestDist };
+  }
+
+  function fmtNum(n){
+    if (Math.abs(n) < 0.0005) n = 0;
+    let s = n.toFixed(3).replace(/0+$/,'').replace(/\.$/, '');
+    if (s === '-0') s = '0';
+    return s.replace('-', '−');
+  }
+
+  function update(){
+    theta = ((theta % 360) + 360) % 360;
+    const rad = toRad(theta);
+    const p = pt(theta, R);
+
+    vector.setAttribute('x1', cx); vector.setAttribute('y1', cy);
+    vector.setAttribute('x2', p.x); vector.setAttribute('y2', p.y);
+
+    point.setAttribute('cx', p.x); point.setAttribute('cy', p.y);
+    haloRing.setAttribute('cx', p.x); haloRing.setAttribute('cy', p.y);
+    focusRing.setAttribute('cx', p.x); focusRing.setAttribute('cy', p.y);
+    handleHit.setAttribute('cx', p.x); handleHit.setAttribute('cy', p.y);
+
+    projV.setAttribute('x1', p.x); projV.setAttribute('y1', p.y);
+    projV.setAttribute('x2', p.x); projV.setAttribute('y2', cy);
+    projH.setAttribute('x1', p.x); projH.setAttribute('y1', p.y);
+    projH.setAttribute('x2', cx); projH.setAttribute('y2', p.y);
+
+    const wp = pt(theta, wedgeR);
+    const largeArc = theta > 180 ? 1 : 0;
+    const d = `M ${cx} ${cy} L ${cx + wedgeR} ${cy} A ${wedgeR} ${wedgeR} 0 ${largeArc} 0 ${wp.x} ${wp.y} Z`;
+    wedge.setAttribute('d', theta < 0.5 ? '' : d);
+
+    const { mark, dist } = nearestMark(theta);
+    const isExact = dist < 0.05;
+
+    MARKS.forEach(m => {
+      const dot = document.getElementById('mark-' + m.deg);
+      if (m.deg === mark.deg && isExact){
+        dot.setAttribute('r', 7.5);
+        dot.setAttribute('fill', '#F2A93B');
+      } else {
+        dot.setAttribute('r', 5.5);
+        dot.setAttribute('fill', '#7C9CFF');
+      }
+    });
+
+    if (isExact){
+      valThetaDeg.textContent = mark.deg + '°';
+      valThetaRad.textContent = mark.label + ' rad';
+      valSin.textContent = mark.sin;
+      valCos.textContent = mark.cos;
+      valTan.textContent = mark.tan;
+    } else {
+      valThetaDeg.textContent = theta.toFixed(1) + '°';
+      valThetaRad.textContent = (rad).toFixed(3) + ' rad';
+      valSin.textContent = fmtNum(Math.sin(rad));
+      const c = Math.cos(rad);
+      valCos.textContent = fmtNum(c);
+      valTan.textContent = Math.abs(c) < 0.0015 ? 'undefined' : fmtNum(Math.sin(rad)/c);
+    }
+
+    handleHit.setAttribute('aria-valuenow', theta.toFixed(1));
+  }
+
+  // ---- dragging ----
+  function angleFromEvent(evt){
+    const rect = svg.getBoundingClientRect();
+    const scale = 600 / rect.width;
+    const x = (evt.clientX - rect.left) * scale;
+    const y = (evt.clientY - rect.top) * scale;
+    const dx = x - cx, dy = y - cy;
+    let deg = Math.atan2(-dy, dx) * 180 / Math.PI;
+    deg = (deg + 360) % 360;
+    return deg;
+  }
+
+  function setTheta(deg, allowSnap){
+    if (allowSnap && snapToggle.checked){
+      const { mark } = nearestMark(deg);
+      theta = mark.deg;
+    } else {
+      theta = deg;
+    }
+    update();
+  }
+
+  function stopPlaying(){
+    playing = false;
+    lastTime = null;
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    playBtn.classList.remove('is-playing');
+    playBtnText.textContent = 'Play';
+  }
+
+  function pointerDown(evt){
+    dragging = true;
+    stopPlaying();
+    handleHit.setPointerCapture && evt.pointerId != null && handleHit.setPointerCapture(evt.pointerId);
+    setTheta(angleFromEvent(evt), true);
+    evt.preventDefault();
+  }
+  function pointerMove(evt){
+    if (!dragging) return;
+    setTheta(angleFromEvent(evt), true);
+  }
+  function pointerUp(){ dragging = false; }
+
+  handleHit.addEventListener('pointerdown', pointerDown);
+  window.addEventListener('pointermove', pointerMove);
+  window.addEventListener('pointerup', pointerUp);
+
+  handleHit.addEventListener('focus', () => focusRing.setAttribute('opacity', '1'));
+  handleHit.addEventListener('blur', () => focusRing.setAttribute('opacity', '0'));
+
+  handleHit.addEventListener('keydown', (e) => {
+    const step = snapToggle.checked ? null : 1;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp'){
+      stopPlaying();
+      if (snapToggle.checked){
+        const idx = MARKS.findIndex(m => m.deg === nearestMark(theta).mark.deg);
+        theta = MARKS[(idx + 1) % MARKS.length].deg;
+      } else { theta += step; }
+      update(); e.preventDefault();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown'){
+      stopPlaying();
+      if (snapToggle.checked){
+        const idx = MARKS.findIndex(m => m.deg === nearestMark(theta).mark.deg);
+        theta = MARKS[(idx - 1 + MARKS.length) % MARKS.length].deg;
+      } else { theta -= step; }
+      update(); e.preventDefault();
+    } else if (e.key === 'Home'){
+      stopPlaying(); theta = 0; update(); e.preventDefault();
+    } else if (e.key === 'End'){
+      stopPlaying(); theta = 330; update(); e.preventDefault();
+    }
+  });
+
+  // ---- play / animate ----
+  function tick(now){
+    if (!playing) return;
+    if (lastTime == null) lastTime = now;
+    const dt = (now - lastTime) / 1000;
+    lastTime = now;
+    const baseDegPerSec = 36; // 10s per revolution at speed 1x
+    const speed = parseFloat(speedSlider.value);
+    theta = (theta + baseDegPerSec * speed * dt) % 360;
+    update();
+    rafId = requestAnimationFrame(tick);
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (playing){
+      stopPlaying();
+    } else {
+      playing = true;
+      playBtn.classList.add('is-playing');
+      playBtnText.textContent = 'Pause';
+      lastTime = null;
+      rafId = requestAnimationFrame(tick);
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    stopPlaying();
+    theta = 0;
+    update();
+  });
+
+  speedSlider.addEventListener('input', () => {
+    speedVal.textContent = parseFloat(speedSlider.value).toFixed(2).replace(/0$/,'') + '×';
+  });
+
+  update();
+})();
+</script>
 </body>
 </html>
